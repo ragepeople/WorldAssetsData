@@ -1,5 +1,8 @@
-from sqlalchemy import MetaData, Table, String, Integer, Column, Text, DateTime, Boolean, Numeric,Float,  text
-from sqlalchemy import ForeignKey, create_engine, insert
+from sqlalchemy import MetaData, create_engine 
+from sqlalchemy import String, Integer, Column, Text, DateTime, Boolean, Numeric,Float,  text
+from sqlalchemy import Table, ForeignKey
+from sqlalchemy import insert, update, delete
+
 from datetime import datetime
 from dotenv import load_dotenv
 import os

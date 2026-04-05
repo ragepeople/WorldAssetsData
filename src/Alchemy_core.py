@@ -82,5 +82,38 @@ instruments = Table(
     Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
 )
 
+depoLimit = Table(
+    "depoLimit",
+    metadata_obj,
+    Column("id", Integer, primary_key=True, autoincrement=True, nullable=False),
+    Column("ticker", String(255), nullable=False),
+    Column("classCode", String(255), nullable=False),
+    Column("exchange", String(255), nullable=False),
+    Column("averagePrice", Integer, nullable=False),
+    Column("quantitytype", String(255), nullable=False),
+    Column("quantityvalue", Integer, nullable=False),
+    Column("quantityBatchtype", String(255), nullable=False),
+    Column("quantityBatchvalue", Integer, nullable=False),
+    Column("instrumentType", String(255), nullable=False),
+    Column("loadDate", DateTime, nullable=False),
+    Column("lockedBuyValue", Integer, nullable=False),
+    Column("lockedSellValue", Integer, nullable=False),
+    Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
+)
+
+moneyLimits = Table(
+    "moneyLimits",
+    metadata_obj,
+    Column("id", Integer, primary_key=True, autoincrement=True, nullable=False),
+    Column("exchange", String(255), nullable=False),
+    Column("currencyCode", String(255), nullable=False),
+    Column("locked", Integer, nullable=False),
+    Column("averagePrice", Integer, nullable=False),
+    Column("instrumentType", String(255), nullable=False),
+    Column("quantitytype", String(255), nullable=False),
+    Column("quantityvalue", Integer, nullable=False),
+    Column("loadDate", DateTime, nullable=False),
+    Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
+)
 
 metadata_obj.create_all(engine)

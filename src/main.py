@@ -5,12 +5,10 @@ import os
 import pandas as pd
 import numpy as np
 import time
-from Alchemy_core import engine, insert,portfolio,instruments
+from Alchemy_core import engine, insert, metadata_obj
 
 from dotenv import load_dotenv
 
-total_retries = 0
-backoff_factor = 0
 load_dotenv()
 
 
@@ -19,6 +17,9 @@ API_KEY = os.getenv("API_KEY")
 
 # engine = db.create_engine(DB_URL)
 # connection = engine.connect()
+metadata_obj.create_all(engine)
+metadata_obj.reflect(bind=engine)
+
 
 def doAuthorization():
   url = "https://be.broker.ru/trade-api-keycloak/realms/tradeapi/protocol/openid-connect/token"
@@ -43,7 +44,6 @@ def doAuthorization():
     print(f"Status code isn't positive: {requests.status_code}. Retrie after {backoff_factor}")
 
   
-
 def getLimits(authToken):
 
   url = "https://be.broker.ru/trade-api-bff-limit/api/v1/limits"
@@ -58,19 +58,14 @@ def getLimits(authToken):
 
   jresponse = json.loads(response.text)
 
-  # print(jresponse)
-
-  # for key in jresponse:
-  #   print(f'{key}: {jresponse[key]}')
-
-  # for key, items in jresponse.items():
-  #   for item in items:
-      
-  #     for field in item.items():
-  #       print(f'{key} -> {field}')
-        
-
-  # print(response.text)
+  for key in jresponse.keys():
+    if jresponse.get(f'{key}') != []:
+      df_limits = pd.json_normalize(jresponse.get(f'{key}'))
+      df_limits.columns = df_limits.columns.str.strip().str.replace(".","")
+      with engine.connect() as conn:
+        table = metadata_obj.tables[f'{key}']
+        result = conn.execute(insert(table), df_limits.to_dict("records"))
+        conn.commit()
 
 
 def getPortfolio(authToken):
@@ -87,8 +82,9 @@ def getPortfolio(authToken):
 
   if response.status_code == 200:
     jresponse = json.loads(response.text)
+
     with engine.connect() as conn:
-      result = conn.execute(insert(portfolio), jresponse)
+      result = conn.execute(insert(metadata_obj.tables['portfolio']), jresponse)
       conn.commit()
   else:
     print(f"Status code {response.status_code} for getPortfolio() is negative! ")
@@ -149,7 +145,7 @@ def getInstruments(authToken):
     records.append(jresponse)
 
     with engine.connect() as conn:
-      result = conn.execute(insert(instruments), jresponse)
+      result = conn.execute(insert(metadata_obj.tables['instruments']), jresponse)
       conn.commit()
       time.sleep(3)
     pages += 1
@@ -160,8 +156,6 @@ def getInstruments(authToken):
         index += 1
         continue
       break
-
-
 
 
 def getDeals(authToken, sideDeal):
@@ -196,9 +190,8 @@ def getDeals(authToken, sideDeal):
 
 def main():
   bearerToken = doAuthorization()
-  # getLimits(bearerToken)
-  # getPortfolio(bearerToken)
-  # print('====================================================')
+  getLimits(bearerToken)
+  getPortfolio(bearerToken)
   getInstruments(bearerToken)
   # getDeals(bearerToken, 1)
 

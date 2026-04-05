@@ -5,4 +5,4 @@
 .env.production
 .env.*.local
 /src/__pycache__/
-pyvenv.cfg
+.pyvenv.cfg

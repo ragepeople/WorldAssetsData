@@ -4,9 +4,13 @@ import sqlalchemy as db
 import os
 import pandas as pd
 import numpy as np
-from Alchemy_core import engine, insert,portfolio
+import time
+from Alchemy_core import engine, insert,portfolio,instruments
+
 from dotenv import load_dotenv
 
+total_retries = 0
+backoff_factor = 0
 load_dotenv()
 
 
@@ -28,7 +32,7 @@ def doAuthorization():
     'Accept': 'application/json'
   }
 
-  response = requests.request("POST", url, headers=headers, data=payload)
+  response = requests.request(f"POST", url, headers=headers, data=payload)
 
   jresponse = json.loads(response.text)
 
@@ -36,8 +40,8 @@ def doAuthorization():
     print("1. Authorization is complete!")
     return jresponse.get('access_token')
   else:
-    print(f"Status code isn't positive: {requests.status_code}. Finished!")
-    return 0
+    print(f"Status code isn't positive: {requests.status_code}. Retrie after {backoff_factor}")
+
   
 
 def getLimits(authToken):
@@ -60,10 +64,10 @@ def getLimits(authToken):
   #   print(f'{key}: {jresponse[key]}')
 
   # for key, items in jresponse.items():
-  #   print(f'=====> {key}')
   #   for item in items:
-  #     print(f'{key} -> {item}')
-      # for field in item.items():
+      
+  #     for field in item.items():
+  #       print(f'{key} -> {field}')
         
 
   # print(response.text)
@@ -114,21 +118,50 @@ def getInstruments(authToken):
 
   url = "https://be.broker.ru/trade-api-information-service/api/v1/instruments/by-type"
 
-  payload = {
-    'type': 'STOCK',
-    'size': '1000'
-  }
-  headers = {
-    'Accept': 'application/json',
-    'Authorization': f'Bearer {authToken}'
-  }
+  listTypes = ['CURRENCY', 'STOCK', 'FOREIGN_STOCK', 'BONDS', 'NOTES', 'DEPOSITARY_RECEIPTS', 'EURO_BONDS', 'MUTUAL_FUNDS', 'ETF', 'FUTURES', 'OPTIONS', 'GOODS', 'INDICES']
 
-  response = requests.request("GET", url, headers=headers, params=payload)
-  jresponse = json.loads(response.text)
+  pages = 0
+  while True: 
+    index = 0
+    payload = {
+      'type': f'{listTypes[index]}',
+      'size': '100',
+      'page': f'{pages}'
+    }
+    headers = {
+      'Accept': 'application/json',
+      'Authorization': f'Bearer {authToken}'
+    }
 
-  for item in jresponse:
-    for key, value in item.items():
-      print(f'{key}: {value}')
+    response = requests.request("GET", url, headers=headers, params=payload)
+
+    if response.status_code != 200:
+      return f"Status code {response.status_code} for getInstruments() is negative!"
+
+
+    jresponse = json.loads(response.text)
+
+    if len(jresponse) == 0:
+      print("Maximum of pages was shown! It is finish!")
+      break
+
+    records = []
+    records.append(jresponse)
+
+    with engine.connect() as conn:
+      result = conn.execute(insert(instruments), jresponse)
+      conn.commit()
+      time.sleep(3)
+    pages += 1
+    
+    if len(jresponse) < 100:
+      pages = 0
+      if listTypes[index] != 'INDICES':
+        index += 1
+        continue
+      break
+
+
 
 
 def getDeals(authToken, sideDeal):
@@ -147,7 +180,7 @@ def getDeals(authToken, sideDeal):
       "string"
     ],
     "startDateTime": "2024-07-29T15:51:28.071Z",
-    "endDateTime": "2024-07-29T15:51:28.071Z"
+    "endDateTime": "2024-07-29T16:51:28.071Z"
   })
   headers = {
     'Content-Type': 'application/json',
@@ -164,10 +197,10 @@ def getDeals(authToken, sideDeal):
 def main():
   bearerToken = doAuthorization()
   # getLimits(bearerToken)
-  getPortfolio(bearerToken)
+  # getPortfolio(bearerToken)
   # print('====================================================')
-  # getInstruments(bearerToken)
-
+  getInstruments(bearerToken)
+  # getDeals(bearerToken, 1)
 
   # typeDeal =   input("Введите тип сделки: 1 - покупка; 2 - продажа -> ")
   # match typeDeal:

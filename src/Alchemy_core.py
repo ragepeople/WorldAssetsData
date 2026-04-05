@@ -65,7 +65,18 @@ portfolio = Table(
     Column("lockedForFutures", Float(precision=4), nullable=False),    # lockedForFutures -> 0.0 -> <class 'float'>
     Column("ratioQuantity", Float(precision=4), nullable=False),       # ratioQuantity -> 0.0 -> <class 'float'>
     Column("expireDate", String(255), nullable=True),                 # expireDate ->  -> <class 'str'>
-    Column("auditDateTime", DateTime, server_default=text("NOW()"))
+    Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
+)
+
+instruments = Table(
+    "instruments",
+    metadata_obj,
+    Column("id", Integer, primary_key=True, autoincrement=True, nullable=False),
+    Column("shortName", String(255)),
+    Column("displayName", String(255)),
+    Column("isin", String(255)),
+    Column("issuerName", String(255)),
+    Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
 )
 
 

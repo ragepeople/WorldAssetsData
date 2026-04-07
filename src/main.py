@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 import time
+from requests.exceptions import SSLError, ConnectionError, Timeout
 from Alchemy_core import engine, insert, metadata_obj
 
 from dotenv import load_dotenv
@@ -106,9 +107,13 @@ def getDailySchedule(authToken):
 
   response = requests.request("GET", url, headers=headers, params=payload)
 
-  print("4. Daily info")
-  print(response.text)
+  if response.status_code != 200:
+    return f"Error while getDailySchedule! Status code: {response.status_code}"  
 
+  jresponse = json.loads(response.text)
+  
+  df_daily = pd.DataFrame(jresponse)
+  print(df_daily)
 
 def getInstruments(authToken):
 
@@ -129,7 +134,12 @@ def getInstruments(authToken):
       'Authorization': f'Bearer {authToken}'
     }
 
-    response = requests.request("GET", url, headers=headers, params=payload)
+    try:
+      response = requests.request("GET", url, headers=headers, params=payload, timeout=30)
+    except SSLError:
+      print("SSL ошибка, повтор через 5 сек...")
+      time.sleep(5)
+      response = requests.get(url, headers=headers, params=payload, timeout=30)
 
     if response.status_code != 200:
       return f"Status code {response.status_code} for getInstruments() is negative!"
@@ -143,9 +153,17 @@ def getInstruments(authToken):
 
     records = []
     records.append(jresponse)
+    
+    df_instruments = pd.json_normalize(jresponse)
+    df_temp_boards = pd.json_normalize(df_instruments["boards"].str[0])
+    df_instruments = df_instruments.drop(columns=['excludeTypes','displayNameSecond','excludeTypeFlags','logoLink','promoIdx','boards']).join(df_temp_boards)
+    df_instruments.columns = df_instruments.columns.str.strip().str.replace(".","")
+    # df_instruments = df_instruments.replace("", None).where(df_instruments.notna(), other=None)
+    # print(df_instruments)
+    
 
     with engine.connect() as conn:
-      result = conn.execute(insert(metadata_obj.tables['instruments']), jresponse)
+      result = conn.execute(insert(metadata_obj.tables['instruments']), df_instruments.where(df_instruments.notna(), other=None).to_dict("records"))
       conn.commit()
       time.sleep(3)
     pages += 1
@@ -190,9 +208,10 @@ def getDeals(authToken, sideDeal):
 
 def main():
   bearerToken = doAuthorization()
-  getLimits(bearerToken)
-  getPortfolio(bearerToken)
+  # getLimits(bearerToken)
+  # getPortfolio(bearerToken)
   getInstruments(bearerToken)
+  # getDailySchedule(bearerToken)
   # getDeals(bearerToken, 1)
 
   # typeDeal =   input("Введите тип сделки: 1 - покупка; 2 - продажа -> ")

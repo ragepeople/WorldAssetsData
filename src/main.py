@@ -121,59 +121,58 @@ def getInstruments(authToken):
 
   listTypes = ['CURRENCY', 'STOCK', 'FOREIGN_STOCK', 'BONDS', 'NOTES', 'DEPOSITARY_RECEIPTS', 'EURO_BONDS', 'MUTUAL_FUNDS', 'ETF', 'FUTURES', 'OPTIONS', 'GOODS', 'INDICES']
 
-  pages = 0
-  while True: 
-    index = 0
-    payload = {
-      'type': f'{listTypes[index]}',
-      'size': '100',
-      'page': f'{pages}'
-    }
-    headers = {
-      'Accept': 'application/json',
-      'Authorization': f'Bearer {authToken}'
-    }
-
-    try:
-      response = requests.request("GET", url, headers=headers, params=payload, timeout=30)
-    except SSLError:
-      print("SSL ошибка, повтор через 5 сек...")
-      time.sleep(5)
-      response = requests.get(url, headers=headers, params=payload, timeout=30)
-
-    if response.status_code != 200:
-      return f"Status code {response.status_code} for getInstruments() is negative!"
-
-
-    jresponse = json.loads(response.text)
-
-    if len(jresponse) == 0:
-      print("Maximum of pages was shown! It is finish!")
-      break
-
-    records = []
-    records.append(jresponse)
+  for instrument in listTypes:
+    pages = 0
     
-    df_instruments = pd.json_normalize(jresponse)
-    df_temp_boards = pd.json_normalize(df_instruments["boards"].str[0])
-    df_instruments = df_instruments.drop(columns=['excludeTypes','displayNameSecond','excludeTypeFlags','logoLink','promoIdx','boards']).join(df_temp_boards)
-    df_instruments.columns = df_instruments.columns.str.strip().str.replace(".","")
-    # df_instruments = df_instruments.replace("", None).where(df_instruments.notna(), other=None)
-    # print(df_instruments)
-    
+    while True:
+      payload = {
+        'type': f'{instrument}',
+        'size': '100',
+        'page': f'{pages}'
+      }
+      headers = {
+        'Accept': 'application/json',
+        'Authorization': f'Bearer {authToken}'
+      }
 
-    with engine.connect() as conn:
-      result = conn.execute(insert(metadata_obj.tables['instruments']), df_instruments.where(df_instruments.notna(), other=None).to_dict("records"))
-      conn.commit()
-      time.sleep(3)
-    pages += 1
+      try:
+        response = requests.request("GET", url, headers=headers, params=payload, timeout=30, verify=False)
+      except SSLError:
+        print("SSL ошибка, повтор через 5 сек...")
+        time.sleep(5)
+        response = requests.get(url, headers=headers, params=payload, timeout=30)
+
+      if response.status_code != 200:
+        return f"Status code {response.status_code} for getInstruments() is negative!"
+
+
+      jresponse = json.loads(response.text)
+
+      if len(jresponse) == 0:
+        print("Maximum of pages was shown! It is finish!")
+        break
+
+      records = []
+      records.append(jresponse)
+      
+      df_instruments = pd.json_normalize(jresponse)
+      df_temp_boards = pd.json_normalize(df_instruments["boards"].str[0])
+      df_instruments = df_instruments.drop(columns=['excludeTypes','displayNameSecond','excludeTypeFlags','logoLink','promoIdx','boards']).join(df_temp_boards)
+      df_instruments.columns = df_instruments.columns.str.strip().str.replace(".","")
+      # df_instruments = df_instruments.replace("", None).where(df_instruments.notna(), other=None)
+      # print(df_instruments)
+      
+
+      with engine.connect() as conn:
+        result = conn.execute(insert(metadata_obj.tables['instruments']), df_instruments.where(df_instruments.notna(), other=None).to_dict("records"))
+        conn.commit()
+        # time.sleep(1)
+        
+      pages += 1
+      
+      if len(jresponse) < 100:
+        break
     
-    if len(jresponse) < 100:
-      pages = 0
-      if listTypes[index] != 'INDICES':
-        index += 1
-        continue
-      break
 
 
 def getDeals(authToken, sideDeal):

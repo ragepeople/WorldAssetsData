@@ -34,7 +34,7 @@ def doAuthorization():
     'Accept': 'application/json'
   }
 
-  response = requests.request(f"POST", url, headers=headers, data=payload)
+  response = requests.request(f"POST", url, headers=headers, data=payload, timeout=30, verify=False)
 
   jresponse = json.loads(response.text)
 
@@ -42,7 +42,7 @@ def doAuthorization():
     print("1. Authorization is complete!")
     return jresponse.get('access_token')
   else:
-    print(f"Status code isn't positive: {requests.status_code}. Retrie after {backoff_factor}")
+    print(f"Status code isn't positive: {requests.status_code}")
 
   
 def getLimits(authToken):
@@ -55,7 +55,7 @@ def getLimits(authToken):
     'Authorization': f'Bearer {authToken}'
   }
 
-  response = requests.request("GET", url, headers=headers, params=payload)
+  response = requests.request("GET", url, headers=headers, params=payload, timeout=30, verify=False)
 
   jresponse = json.loads(response.text)
 
@@ -67,7 +67,7 @@ def getLimits(authToken):
         table = metadata_obj.tables[f'{key}']
         result = conn.execute(insert(table), df_limits.to_dict("records"))
         conn.commit()
-
+  
 
 def getPortfolio(authToken):
   url = "https://be.broker.ru/trade-api-bff-portfolio/api/v1/portfolio"
@@ -78,7 +78,7 @@ def getPortfolio(authToken):
     'Authorization': f'Bearer {authToken}'
   }
 
-  response = requests.request("GET", url, headers=headers, data=payload)
+  response = requests.request("GET", url, headers=headers, data=payload, timeout=30, verify=False)
   # print(response.text)
 
   if response.status_code == 200:
@@ -105,7 +105,7 @@ def getDailySchedule(authToken):
     'Authorization': f'Bearer {authToken}'
   }
 
-  response = requests.request("GET", url, headers=headers, params=payload)
+  response = requests.request("GET", url, headers=headers, params=payload, timeout=30, verify=False)
 
   if response.status_code != 200:
     return f"Error while getDailySchedule! Status code: {response.status_code}"  
@@ -172,57 +172,112 @@ def getInstruments(authToken):
       
       if len(jresponse) < 100:
         break
+  
+  
+def getAllBids(authToken):
+
+  url = "https://be.broker.ru/trade-api-bff-order-details/api/v1/orders/search"
+
+  page = -1
+  while True: 
+    print("NEW ITERATION OF WHILE")
+    page += 1
+    payload = json.dumps({
+      "page": f"{page}",
+      "size": "100",
+      "sort": "orderDateTime,asc",
+      "startDateTime": "2026-01-26T00:00:00.000Z",
+      "endDateTime": "2026-04-09T20:25:00.000Z",
+      # "side": 1,
+      # "orderStatus": [
+      #   1
+      # ],
+      # "orderTypes": [
+      #   1
+      # ],
+      # "tickers": [
+      #   "string"
+      # ],
+      # "classCodes": [
+      #   "string"
+      # ]
+    })
+    headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': f'Bearer {authToken}'
+    }
+
+    response = requests.request("POST", url, headers=headers, data=payload, timeout=30, verify=False)
     
+    if response.status_code != 200:
+      return f"Status code {response.status_code} for getInstruments() is negative!"
+    
+    jresponse = json.loads(response.text)
+    
+    for key, item in jresponse.items():
+      print(f'{key} -> {item}')
+      
+    df_allbids = pd.json_normalize(jresponse.get("records"))
+    
+    # pd.set_option('display.max_columns', None)
+    
+    print(df_allbids)
+    
+    with engine.connect() as conn:
+      result = conn.execute(insert(metadata_obj.tables['allBids']), df_allbids.where(df_allbids.notna(), other=None).to_dict("records"))
+      conn.commit()
+
+    if jresponse.get("totalRecords") < 100:
+      break
 
 
-def getDeals(authToken, sideDeal):
+def searchAllDeals(authToken):
 
   url = "https://be.broker.ru/trade-api-bff-trade-details/api/v1/trades/search"
 
-  payload = json.dumps({
-    "side": f"{sideDeal}",
-    "tradeNums": [
-      0
-    ],
-    "tickers": [
-      "SBER"
-    ],
-    "classCodes": [
-      "string"
-    ],
-    "startDateTime": "2024-07-29T15:51:28.071Z",
-    "endDateTime": "2024-07-29T16:51:28.071Z"
-  })
-  headers = {
-    'Content-Type': 'application/json',
-    'Accept': '*/*',
-    'Authorization': f'Bearer {authToken}'
-  }
+  dictSides = {'1': 'Buy', '2': 'Sell'}
+  
+  for key in dictSides.keys():
+    payload = json.dumps({
+      "page": "0",
+      "size": "100",
+      "sort": "tradeDateTime,asc",
+      "side": "{key}",
+      # "tradeNums": [
+      #   0
+      # ],
+      # "tickers": [
+      #   "NMTP"
+      # ],
+      # "classCodes": [
+      #   "TQBR"
+      # ],
+      "startDateTime": "2026-01-01T00:00:00.000Z",
+      "endDateTime": "2026-04-09T20:15:00.000Z"
+    })
+    headers = {
+      'Content-Type': 'application/json',
+      'Accept': '*/*',
+      'Authorization': 'Bearer <token>'
+    }
 
-  response = requests.request("POST", url, headers=headers, data=payload)
+    response = requests.request("POST", url, headers=headers, data=payload, timeout=30, verify=False)
 
-  print(response.text)
+    print(response.text)
+    
+  
 
 
 
 def main():
   bearerToken = doAuthorization()
-  # getLimits(bearerToken)
-  # getPortfolio(bearerToken)
+  getLimits(bearerToken)
+  getPortfolio(bearerToken)
   getInstruments(bearerToken)
-  # getDailySchedule(bearerToken)
-  # getDeals(bearerToken, 1)
-
-  # typeDeal =   input("Введите тип сделки: 1 - покупка; 2 - продажа -> ")
-  # match typeDeal:
-  #   case "1":
-  #     getDailySchedule(bearerToken, typeDeal)
-  #   case "2":
-  #     getDailySchedule(bearerToken, typeDeal)
-  #   case _:
-  #     print(f"Something was wrong: {typeDeal}")
-  
-
+  getDailySchedule(bearerToken)
+  getAllBids(bearerToken)
+  # searchAllDeals(bearerToken)
 
     
 if __name__ == '__main__':

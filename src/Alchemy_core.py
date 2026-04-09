@@ -1,5 +1,5 @@
-from sqlalchemy import MetaData, create_engine 
-from sqlalchemy import String, Integer, Column, Text, DateTime, Boolean, Numeric,Float,  text
+from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy import String, Integer, Column, Text, DateTime, Date, Boolean, Numeric,Float, BigInteger
 from sqlalchemy import Table, ForeignKey
 from sqlalchemy import insert, update, delete
 
@@ -178,6 +178,48 @@ moneyLimits = Table(
     Column("quantityvalue", Integer, nullable=False),
     Column("loadDate", DateTime, nullable=False),
     Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
+)
+
+allBids = Table(
+    "allBids",
+    metadata_obj,
+    Column("id", Integer, primary_key=True, autoincrement=True, nullable=False),
+    Column("orderNum", BigInteger, nullable=False),
+    Column("orderId", String(255), nullable=False),
+    Column("clientCode", String(255), nullable=False),
+    Column("executionDateTime", DateTime, nullable=False),
+    Column("executedValue", Numeric, nullable=False),
+    Column("orderDateTime", DateTime, nullable=False),
+    Column("tradeDate", Date, nullable=False),
+    Column("updateDateTime", DateTime, nullable=False),
+    Column("ticker", String(255), nullable=False),
+    Column("classCode", String(30), nullable=False),    
+    Column("takePrice", Numeric, nullable=True),
+    Column("stopPrice", Numeric, nullable=True),
+    Column("price", Numeric, nullable=False),
+    Column("settlementCurrency", String(5), nullable=False),
+    Column("orderQuantuty", Numeric, nullable=True),
+    Column("remainedQuantity", Numeric, nullable=True),
+    Column("executedQuantity", Numeric, nullable=False),
+    Column("rejectReason", String(255), nullable=True),
+    Column("averagePrice", Numeric, nullable=False),
+    Column("calculationVolume", Numeric, nullable=False),
+    Column("contractSum", Numeric, nullable=False),
+    Column("orderStatus", Integer, nullable=False, comment="1 - deselected, 2 - done, 3 - active"),
+    Column("orderType", Integer, nullable=False, comment="1 - Рыночная, 2 - Лимитная, 3 - Айсберг, 4 - Стоп-лосс, 5 - Тейк-профит (порождает 2), 6 - Стоп-лосс, 7 - Тейк-профит и стоп-лосс, 10 - Лимит на 30 дней, 11 - Тейк-профит, 12 - Трейлинг-стоп"),
+    Column("side", Integer, nullable=False, comment="1 - Buy, 2 - Sell"),
+    Column("orderQuantityLots", Numeric, nullable=False),
+    Column("remainedQuantityLots", Numeric, nullable=False),
+    Column("executedQuantityLots", Numeric, nullable=False),
+    Column("linkedOrder", String(255), nullable=True),
+    Column("stopOrder", String(255), nullable=True),
+    Column("visible", Numeric, nullable=True),
+    Column("marketTakeProfit", Integer, nullable=True, comment="1 - Рыночная заявка, 2 - Лимитная заявка"),
+    Column("marketStopLoss", Integer, nullable=True, comment="1 - Рыночная заявка, 2 - Лимитная заявка"),
+    Column("positionPriceStop", Numeric, nullable=True),
+    Column("positionPriceLimit", Numeric, nullable=True),
+    Column("auditDateTime", DateTime, server_default=text("(CURRENT_TIMESTAMP AT TIME ZONE 'Europe/Moscow')"))
+    
 )
 
 metadata_obj.create_all(engine)

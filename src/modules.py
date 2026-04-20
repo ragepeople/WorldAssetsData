@@ -5,10 +5,10 @@ import datetime
 from sqlalchemy import MetaData, create_engine, text, insert
 
 
-
 # --> Initializing logging 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
-logging.basicConfig(format='%(asctime)s // %(message)s', filename='logs/myapp.log', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s // %(message)s', filename=os.path.join(BASE_DIR, '..', 'logs', 'myapp.log'), level=logging.INFO)
 logger.debug('Module logging has been initialized!')
 
 # --> Initializing sensetive data from .env
